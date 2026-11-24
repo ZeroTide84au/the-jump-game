@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>The Jump Game</title>
+    <meta property="og:title" content="The Jump Game">
+    <meta property="og:description" content="Bounce higher and higher — beat your high score!">
+    <meta property="og:type" content="website">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #0a0e27;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vmin;
+            max-width: 480px;
+            aspect-ratio: 9 / 16;
+            border: 3px solid #00ffff;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.4), 0 0 60px rgba(0, 255, 255, 0.1);
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #hudTop {
+            padding: 12px 15px;
+            color: #00ffff;
+            font-size: clamp(12px, 2.5vmin, 18px);
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.9);
+        }
+
+        #heightDisplay {
+            font-size: clamp(16px, 3.5vmin, 24px);
+            color: #ff00ff;
+            text-shadow: 0 0 8px rgba(255, 0, 255, 0.9);
+        }
+
+        #bestDisplay {
+            font-size: clamp(10px, 2vmin, 14px);
+            color: #ffff00;
+            text-shadow: 0 0 6px rgba(255, 255, 0, 0.7);
+            margin-top: 2px;
+        }
+
+        #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            z-index: 100;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        #gameOverScreen.show {
+            display: flex;
+        }
+
+        #gameOverScreen h1 {
+            color: #ff00ff;
+            font-size: clamp(28px, 7vmin, 48px);
+            margin-bottom: 8px;
+            text-shadow: 0 0 20px rgba(255, 0, 255, 0.8);
+            letter-spacing: 3px;
+        }
+
+        #finalScore {
+            color: #00ffff;
+            font-size: clamp(18px, 4vmin, 28px);
+            margin-bottom: 6px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        #newBestBadge {
+            color: #ffff00;
+            font-size: clamp(12px, 2.5vmin, 18px);
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255, 255, 0, 0.9);
+            display: none;
+        }
+
+        #newBestBadge.show {
+            display: block;
+        }
+
+        #leaderboard {
+            background: rgba(0, 10, 30, 0.97);
+            border: 2px solid #00ffff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            width: 90%;
+            max-width: 360px;
+        }
+
+        #leaderboard h3 {
+            color: #ff00ff;
+            margin-bottom: 12px;
+            text-align: center;
+            font-size: clamp(14px, 3vmin, 18px);
+            text-shadow: 0 0 8px rgba(255, 0, 255, 0.6);
+            letter-spacing: 2px;
+        }
+
+        .leaderboard-entry {
+            color: #00ffff;
+            padding: 6px 4px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+            font-size: clamp(11px, 2.2vmin, 14px);
+        }
+
+        .leaderboard-entry:last-child {
+            border-bottom: none;
+        }
+
+        .leaderboard-entry.highlight {
+            background: rgba(255, 0, 255, 0.15);
+            color: #ff00ff;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+
+        .leaderboard-entry .rank {
+            width: 30px;
+            flex-shrink: 0;
+        }
+
+        .leaderboard-entry .score-val {
+            flex: 1;
+            text-align: center;
+        }
+
+        .leaderboard-entry .score-date {
+            text-align: right;
+            opacity: 0.7;
+            font-size: 0.85em;
+        }
+
+        #restartButton {
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            border: none;
+            padding: 14px 36px;
+            font-size: clamp(14px, 3vmin, 20px);
+            font-weight: bold;
+            color: #000;
+            cursor: pointer;
+            border-radius: 8px;
+            text-transform: uppercase;
+            pointer-events: auto;
+            transition: transform 0.15s, box-shadow 0.15s;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            letter-spacing: 2px;
+        }
+
+        #restartButton:hover {
+            transform: scale(1.06);
+            box-shadow: 0 0 35px rgba(255, 0, 255, 0.8);
+        }
+
+        #restartButton:active {
+            transform: scale(0.95);
+        }
+
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            z-index: 100;
+            padding: 20px;
+        }
+
+        #startScreen h1 {
+            color: #ff00ff;
+            font-size: clamp(24px, 6vmin, 42px);
+            margin-bottom: 12px;
+            text-shadow: 0 0 20px rgba(255, 0, 255, 0.8);
+            letter-spacing: 3px;
+            text-align: center;
+        }
+
+        #startScreen p {
+            color: #00ffff;
+            font-size: clamp(11px, 2.5vmin, 16px);
+            margin-bottom: 8px;
+            text-align: center;
+            opacity: 0.9;
+        }
+
+        #startButton {
+            margin-top: 30px;
+            background: linear-gradient(135deg, #00ffff, #ff00ff);
+            border: none;
+            padding: 14px 36px;
+            font-size: clamp(14px, 3vmin, 20px);
+            font-weight: bold;
+            color: #000;
+            cursor: pointer;
+            border-radius: 8px;
+            text-transform: uppercase;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        #startButton:hover {
+            transform: scale(1.06);
+            box-shadow: 0 0 35px rgba(255, 0, 255, 0.8);
+        }
+    </style>
+</head>
+<body>
+<div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui">
+        <div id="hudTop">
+            <div id="heightDisplay">HEIGHT: 0m</div>
+            <div id="bestDisplay">BEST: 0m</div>
+        </div>
+    </div>
+
+    <div id="startScreen">
+        <h1>THE JUMP<br>GAME</h1>
+        <p>← → Arrow keys or A/D to move</p>
+        <p>Mobile: swipe left or right</p>
+        <p>Bounce on platforms to climb higher!</p>
+        <button id="startButton">START</button>
+    </div>
+
+    <div id="gameOverScreen">
+        <h1>GAME OVER</h1>
+        <div id="finalScore">SCORE: 0m</div>
+        <div id="newBestBadge">★ NEW BEST! ★</div>
+        <div id="leaderboard">
+            <h3>— TOP 10 —</h3>
+            <div id="leaderboardList"></div>
+        </div>
+        <button id="restartButton">PLAY AGAIN</button>
+    </div>
+</div>
+
+<script>
+const CONFIG = {
+    canvasWidth: 400,
+    canvasHeight: 711,
+    playerWidth: 28,
+    playerHeight: 36,
+    platformWidth: 70,
+    platformHeight: 12,
+    gravity: 900,
+    jumpVelocity: 520,
+    maxHorizontalSpeed: 240,
+    platformSpacingMin: 70,
+    platformSpacingMax: 115,
+    leaderboardSize: 10
+};
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const DPR = window.devicePixelRatio || 1;
+canvas.width = CONFIG.canvasWidth * DPR;
+canvas.height = CONFIG.canvasHeight * DPR;
+ctx.scale(DPR, DPR);
+
+const startScreen = document.getElementById('startScreen');
+const startButton = document.getElementById('startButton');
+const gameOverScreen = document.getElementById('gameOverScreen');
+const restartButton = document.getElementById('restartButton');
+const finalScore = document.getElementById('finalScore');
+const newBestBadge = document.getElementById('newBestBadge');
+const leaderboardList = document.getElementById('leaderboardList');
+const heightDisplay = document.getElementById('heightDisplay');
+const bestDisplay = document.getElementById('bestDisplay');
+
+const LeaderboardManager = (() => {
+    const KEY = 'jump-game-leaderboard-v2';
+    const SIZE = CONFIG.leaderboardSize;
+    let memoryBoard = [];
+
+    function storageAvailable() {
+        try {
+            localStorage.setItem('__test__', '1');
+            localStorage.removeItem('__test__');
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    const hasStorage = storageAvailable();
+
+    function getAll() {
+        try {
+            if (!hasStorage) return [...memoryBoard];
+            const raw = localStorage.getItem(KEY);
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return [];
+            return parsed
+                .filter(item => typeof item.score === 'number' && item.score >= 0 && typeof item.date === 'string')
+                .sort((a, b) => b.score - a.score)
+                .slice(0, SIZE);
+        } catch (e) {
+            return [...memoryBoard];
+        }
+    }
+
+    function addScore(score) {
+        const safeScore = Math.floor(Math.max(0, score));
+        const entry = { score: safeScore, date: new Date().toLocaleDateString() };
+        let board = getAll();
+        board.push(entry);
+        board = board.sort((a, b) => b.score - a.score).slice(0, SIZE);
+
+        try {
+            if (hasStorage) {
+                localStorage.setItem(KEY, JSON.stringify(board));
+            } else {
+                memoryBoard = board;
+            }
+        } catch (e) {
+            memoryBoard = board;
+        }
+
+        return board;
+    }
+
+    function getBest() {
+        const board = getAll();
+        return board.length ? board[0].score : 0;
+    }
+
+    return { getAll, addScore, getBest };
+})();
+
+class PlatformPool {
+    constructor(reserve = 120) {
+        this.available = [];
+        this.active = [];
+        for (let i = 0; i < reserve; i++) {
+            this.available.push(this.make());
+        }
+    }
+
+    make() {
+        return {
+            x: 0,
+            y: 0,
+            width: CONFIG.platformWidth,
+            height: CONFIG.platformHeight
+        };
+    }
+
+    get(x, y) {
+        const p = this.available.length ? this.available.pop() : this.make();
+        p.x = x;
+        p.y = y;
+        this.active.push(p);
+        return p;
+    }
+
+    releaseOffscreen(cameraY) {
+        const limit = cameraY + CONFIG.canvasHeight + 150;
+        const kept = [];
+        for (const p of this.active) {
+            if (p.y > limit) {
+                this.available.push(p);
+            } else {
+                kept.push(p);
+            }
+        }
+        this.active = kept;
+    }
+
+    clear() {
+        while (this.active.length) {
+            this.available.push(this.active.pop());
+        }
+    }
+}
+
+class Particle {
+    constructor(x, y, vx, vy, life, color, size) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.life = life;
+        this.maxLife = life;
+        this.color = color;
+        this.size = size;
+    }
+
+    update(dt) {
+        this.life -= dt;
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.vy += 200 * dt;
+    }
+
+    draw(ctx, cameraY) {
+        if (this.life <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - cameraY, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class Player {
+    constructor(x, y) {
+        this.width = CONFIG.playerWidth;
+        this.height = CONFIG.playerHeight;
+        this.reset(x, y);
+    }
+
+    reset(x, y) {
+        this.x = x;
+        this.y = y;
+        this.previousY = y;
+        this.velocityX = 0;
+        this.velocityY = 0;
+        this.color = '#ffff00';
+        this.alive = true;
+        this.squash = 1;
+    }
+
+    update(dt, inputX) {
+        this.previousY = this.y;
+        this.velocityX = inputX * CONFIG.maxHorizontalSpeed;
+        this.x += this.velocityX * dt;
+        this.velocityY += CONFIG.gravity * dt;
+        this.y += this.velocityY * dt;
+
+        if (this.x + this.width < 0) this.x = CONFIG.canvasWidth;
+        if (this.x > CONFIG.canvasWidth) this.x = -this.width;
+
+        this.squash += (1 - this.squash) * Math.min(1, dt * 10);
+    }
+
+    bounce() {
+        this.velocityY = -CONFIG.jumpVelocity;
+        this.squash = 0.75;
+    }
+
+    draw(ctx, cameraY) {
+        const drawX = this.x;
+        const drawY = this.y - cameraY;
+
+        ctx.save();
+        ctx.translate(drawX + this.width / 2, drawY + this.height / 2);
+        ctx.scale(1.1 - (this.squash - 1) * 0.2, this.squash);
+        ctx.translate(-this.width / 2, -this.height / 2);
+
+        ctx.shadowColor = '#ffff00';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        ctx.fillStyle = '#000';
+        ctx.fillRect(6, 9, 4, 4);
+        ctx.fillRect(18, 9, 4, 4);
+        ctx.fillRect(9, 23, 10, 3);
+
+        ctx.restore();
+    }
+}
+
+const game = {
+    running: false,
+    over: false,
+    started: false,
+    lastTime: 0,
+    cameraY: 0,
+    maxHeight: 0,
+    inputX: 0,
+    touchActive: false,
+    player: null,
+    platformPool: new PlatformPool(),
+    particles: [],
+    stars: [],
+    bestScore: LeaderboardManager.getBest()
+};
+
+function rand(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+}
+
+function createStars() {
+    game.stars = [];
+    for (let i = 0; i < 60; i++) {
+        game.stars.push({
+            x: rand(0, CONFIG.canvasWidth),
+            y: rand(0, CONFIG.canvasHeight),
+            r: rand(1, 2.5),
+            a: rand(0.2, 0.9)
+        });
+    }
+}
+
+function emitBounceParticles(x, y) {
+    for (let i = 0; i < 10; i++) {
+        game.particles.push(
+            new Particle(
+                x + rand(-10, 10),
+                y,
+                rand(-70, 70),
+                rand(-120, -20),
+                rand(0.25, 0.55),
+                i % 2 === 0 ? '#00ffff' : '#ff00ff',
+                rand(1.5, 3.2)
+            )
+        );
+    }
+}
+
+function initializePlatforms() {
+    game.platformPool.clear();
+
+    const startY = CONFIG.canvasHeight - 80;
+    game.platformPool.get(CONFIG.canvasWidth / 2 - CONFIG.platformWidth / 2, startY);
+
+    let y = startY - 90;
+    while (y > -2200) {
+        const x = rand(20, CONFIG.canvasWidth - CONFIG.platformWidth - 20);
+        game.platformPool.get(x, y);
+        y -= rand(CONFIG.platformSpacingMin, CONFIG.platformSpacingMax);
+    }
+}
+
+function extendPlatformsUpward() {
+    let highestY = Infinity;
+    for (const p of game.platformPool.active) {
+        if (p.y < highestY) highestY = p.y;
+    }
+    if (!isFinite(highestY)) highestY = CONFIG.canvasHeight - 80;
+
+    while (highestY > game.cameraY - 1200) {
+        highestY -= rand(CONFIG.platformSpacingMin, CONFIG.platformSpacingMax);
+        const x = rand(20, CONFIG.canvasWidth - CONFIG.platformWidth - 20);
+        game.platformPool.get(x, highestY);
+    }
+}
+
+function resetGame() {
+    game.running = false;
+    game.over = false;
+    game.lastTime = 0;
+    game.cameraY = 0;
+    game.maxHeight = 0;
+    game.inputX = 0;
+    game.touchActive = false;
+    game.particles = [];
+    game.bestScore = LeaderboardManager.getBest();
+
+    game.player = new Player(
+        CONFIG.canvasWidth / 2 - CONFIG.playerWidth / 2,
+        CONFIG.canvasHeight - 140
+    );
+
+    initializePlatforms();
+    createStars();
+
+    heightDisplay.textContent = 'HEIGHT: 0m';
+    bestDisplay.textContent = `BEST: ${game.bestScore}m`;
+
+    startScreen.style.display = 'flex';
+    gameOverScreen.classList.remove('show');
+    newBestBadge.classList.remove('show');
+}
+
+function startGame() {
+    game.started = true;
+    game.running = true;
+    game.over = false;
+    game.lastTime = performance.now();
+    startScreen.style.display = 'none';
+    gameOverScreen.classList.remove('show');
+    requestAnimationFrame(loop);
+}
+
+function endGame() {
+    game.running = false;
+    game.over = true;
+
+    const score = Math.floor(game.maxHeight);
+    const oldBest = LeaderboardManager.getBest();
+    const board = LeaderboardManager.addScore(score);
+    const newBest = board.length ? board[0].score : 0;
+
+    finalScore.textContent = `SCORE: ${score}m`;
+    if (score >= oldBest && score > 0) {
+        newBestBadge.classList.add('show');
+    } else {
+        newBestBadge.classList.remove('show');
+    }
+
+    bestDisplay.textContent = `BEST: ${newBest}m`;
+    renderLeaderboard(board, score);
+    gameOverScreen.classList.add('show');
+}
+
+function renderLeaderboard(board, latestScore) {
+    leaderboardList.innerHTML = '';
+
+    if (!board.length) {
+        const row = document.createElement('div');
+        row.className = 'leaderboard-entry';
+        row.innerHTML = `<span class="rank">-</span><span class="score-val">No scores yet</span><span class="score-date">-</span>`;
+        leaderboardList.appendChild(row);
+        return;
+    }
+
+    let highlighted = false;
+
+    board.forEach((entry, index) => {
+        const row = document.createElement('div');
+        let highlight = '';
+        if (!highlighted && entry.score === latestScore) {
+            highlight = ' highlight';
+            highlighted = true;
+        }
+        row.className = `leaderboard-entry${highlight}`;
+        row.innerHTML = `
+            <span class="rank">#${index + 1}</span>
+            <span class="score-val">${entry.score}m</span>
+            <span class="score-date">${entry.date}</span>
+        `;
+        leaderboardList.appendChild(row);
+    });
+}
+
+function update(dt) {
+    const player = game.player;
+    if (!player || game.over) return;
+
+    player.update(dt, game.inputX);
+
+    for (const platform of game.platformPool.active) {
+        const playerBottomPrev = player.previousY + player.height;
+        const playerBottomCurr = player.y + player.height;
+
+        const crossedPlatformTop =
+            player.velocityY >= 0 &&
+            playerBottomPrev <= platform.y &&
+            playerBottomCurr >= platform.y;
+
+        const withinX =
+            player.x + player.width > platform.x &&
+            player.x < platform.x + platform.width;
+
+        if (crossedPlatformTop && withinX) {
+            player.y = platform.y - player.height;
+            player.bounce();
+            emitBounceParticles(player.x + player.width / 2, platform.y);
+            break;
+        }
+    }
+
+    const targetCameraY = Math.min(game.cameraY, player.y - CONFIG.canvasHeight * 0.42);
+    game.cameraY += (targetCameraY - game.cameraY) * Math.min(1, dt * 6);
+
+    const height = Math.max(0, Math.floor((CONFIG.canvasHeight - 140 - player.y) / 10));
+    game.maxHeight = Math.max(game.maxHeight, height);
+
+    heightDisplay.textContent = `HEIGHT: ${Math.floor(game.maxHeight)}m`;
+
+    game.platformPool.releaseOffscreen(game.cameraY);
+    extendPlatformsUpward();
+
+    game.particles = game.particles.filter(p => p.life > 0);
+    for (const p of game.particles) p.update(dt);
+
+    if (player.y - game.cameraY > CONFIG.canvasHeight + 120) {
+        endGame();
+    }
+}
+
+function drawBackground() {
+    const g = ctx.createLinearGradient(0, 0, 0, CONFIG.canvasHeight);
+    g.addColorStop(0, '#0a0e27');
+    g.addColorStop(1, '#11193f');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, CONFIG.canvasWidth, CONFIG.canvasHeight);
+
+    for (const star of game.stars) {
+        ctx.save();
+        ctx.globalAlpha = star.a;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(star.x, ((star.y - game.cameraY * 0.15) % (CONFIG.canvasHeight + 20) + (CONFIG.canvasHeight + 20)) % (CONFIG.canvasHeight + 20), star.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+function drawPlatforms() {
+    for (const p of game.platformPool.active) {
+        const y = p.y - game.cameraY;
+        if (y < -30 || y > CONFIG.canvasHeight + 30) continue;
+
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = '#00ffff';
+        ctx.fillRect(p.x, y, p.width, p.height);
+
+        ctx.fillStyle = '#7df9ff';
+        ctx.fillRect(p.x, y, p.width, 3);
+
+        ctx.restore();
+    }
+}
+
+function drawParticles() {
+    for (const p of game.particles) {
+        p.draw(ctx, game.cameraY);
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, CONFIG.canvasWidth, CONFIG.canvasHeight);
+    drawBackground();
+    drawPlatforms();
+    drawParticles();
+    if (game.player) game.player.draw(ctx, game.cameraY);
+}
+
+function loop(timestamp) {
+    if (!game.running) return;
+
+    const dt = clamp((timestamp - game.lastTime) / 1000, 0, 1 / 30);
+    game.lastTime = timestamp;
+
+    update(dt);
+    draw();
+
+    if (game.running) {
+        requestAnimationFrame(loop);
+    }
+}
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        game.inputX = -1;
+    }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        game.inputX = 1;
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (
+        e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A' ||
+        e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D'
+    ) {
+        game.inputX = 0;
+    }
+});
+
+let touchStartX = null;
+
+function handleTouchStart(e) {
+    if (!e.touches.length) return;
+    touchStartX = e.touches[0].clientX;
+    game.touchActive = true;
+    e.preventDefault();
+}
+
+function handleTouchMove(e) {
+    if (!e.touches.length || touchStartX === null) return;
+    const currentX = e.touches[0].clientX;
+    const dx = currentX - touchStartX;
+
+    if (dx < -12) game.inputX = -1;
+    else if (dx > 12) game.inputX = 1;
+    else game.inputX = 0;
+
+    e.preventDefault();
+}
+
+function handleTouchEnd(e) {
+    game.touchActive = false;
+    touchStartX = null;
+    game.inputX = 0;
+    e.preventDefault();
+}
+
+const container = document.getElementById('gameContainer');
+container.addEventListener('touchstart', handleTouchStart, { passive: false });
+container.addEventListener('touchmove', handleTouchMove, { passive: false });
+container.addEventListener('touchend', handleTouchEnd, { passive: false });
+container.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+startButton.addEventListener('click', startGame);
+restartButton.addEventListener('click', () => {
+    resetGame();
+    startGame();
+});
+
+resetGame();
+draw();
+</script>
+</body>
+</html>
